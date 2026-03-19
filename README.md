@@ -30,9 +30,7 @@ Application web interactive pour visualiser les capteurs de trafic routier sur l
 - 🐳 **Conteneurisation Docker** pour un déploiement facile
 - 📊 **Statistiques en temps réel** du nombre de capteurs affichés
 
-## 📸 Capture d'écran
 
-*Ajoutez ici une capture d'écran de votre application*
 
 ## 🛠️ Technologies utilisées
 
