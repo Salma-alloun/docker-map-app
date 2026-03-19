@@ -1,0 +1,14 @@
+{
+  "name": "docker-map-app",
+  "version": "1.0.0",
+  "description": "Map app avec Docker et MongoDB",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongodb": "^5.7.0",
+    "csv-parser": "^3.0.0"
+  }
+}

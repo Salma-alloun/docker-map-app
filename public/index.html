@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Carte des capteurs de trafic</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    #map { 
+      height: 80vh; 
+      width: 100%; 
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    body { 
+      margin: 0; 
+      font-family: Arial, sans-serif;
+      background: #f0f0f0;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .controls {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    select, button {
+      padding: 8px 12px;
+      margin-right: 10px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    .stats {
+      margin-left: 20px;
+      color: #666;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 20px;
+      color: #666;
+      font-size: 12px;
+    }
+    /* Style pour les points rouges simples et petits */
+    .simple-red-dot {
+      background-color: #ff3333;
+      width: 10px;  /* Plus petit */
+      height: 10px;  /* Plus petit */
+      border-radius: 50%;
+      border: 2px solid white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    /* Style pour les popups */
+    .sensor-popup {
+      font-family: Arial, sans-serif;
+      min-width: 250px;
+    }
+    .sensor-popup h3 {
+      margin: 0 0 10px 0;
+      color: #ff3333;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 5px;
+    }
+    .sensor-popup table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .sensor-popup td {
+      padding: 5px 0;
+    }
+    .sensor-popup td:first-child {
+      font-weight: bold;
+      color: #555;
+      width: 40%;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🗺️ Carte des capteurs de trafic - Californie</h1>
+    
+    <div class="controls">
+      <label for="freeway">Filtrer par autoroute:</label>
+      <select id="freeway">
+        <option value="all">Toutes les autoroutes</option>
+      </select>
+      <button onclick="filterByFreeway()">Filtrer</button>
+      <button onclick="resetMap()">Réinitialiser</button>
+      <span class="stats" id="stats">Chargement...</span>
+    </div>
+    
+    <div id="map"></div>
+    
+    <div class="footer">
+      Données capteurs de trafic Californie | © OpenStreetMap contributeurs
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Configuration de la carte
+    const map = L.map('map').setView([37.35, -121.95], 11);
+    let allSensors = [];
+    let markers = [];
+
+    // Couche de fond OpenStreetMap
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+
+    // Fonction pour créer un petit point rouge SIMPLE (sans numéro)
+    function getSimpleRedDot() {
+      return L.divIcon({
+        className: 'simple-red-dot',
+        html: '<div class="simple-red-dot"></div>',
+        iconSize: [14, 14],    // Taille du conteneur
+        iconAnchor: [7, 7]      // Point d'ancrage au centre
+      });
+    }
+
+    // Charger les données
+    fetch('/sensors')
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        // Filtrer les capteurs avec des coordonnées valides
+        allSensors = data.filter(s => s.lat && s.lng && !isNaN(s.lat) && !isNaN(s.lng));
+        
+        // Afficher les capteurs sur la carte
+        displaySensors(allSensors);
+        updateStats(allSensors);
+        
+        // Remplir la liste déroulante des autoroutes
+        const freeways = [...new Set(allSensors.map(s => s.freeway).filter(Boolean))].sort();
+        const select = document.getElementById('freeway');
+        freeways.forEach(freeway => {
+          const option = document.createElement('option');
+          option.value = freeway;
+          option.textContent = freeway;
+          select.appendChild(option);
+        });
+        
+        console.log(`${allSensors.length} capteurs chargés`);
+      })
+      .catch(error => {
+        console.error('Erreur de chargement:', error);
+        document.getElementById('stats').innerHTML = '❌ Erreur de chargement';
+        
+        // Données de démonstration (optionnel - à commenter si vous voulez juste l'erreur)
+        const demoSensors = [
+          { sensorId: 'CR G4', freeway: 'US 101', lat: 37.35, lng: -121.95, direction: 'N', postmile: '12.5', lanes: 4, lengthKm: 0.5 },
+          { sensorId: '3', freeway: 'I-280', lat: 37.38, lng: -122.05, direction: 'S', postmile: '8.2', lanes: 3, lengthKm: 0.4 },
+          { sensorId: '4', freeway: 'CA-85', lat: 37.32, lng: -121.98, direction: 'E', postmile: '15.7', lanes: 4, lengthKm: 0.6 },
+          { sensorId: '5', freeway: 'US 101', lat: 37.36, lng: -121.92, direction: 'N', postmile: '14.2', lanes: 5, lengthKm: 0.5 },
+          { sensorId: '1', freeway: 'I-880', lat: 37.4, lng: -122.02, direction: 'S', postmile: '22.1', lanes: 4, lengthKm: 0.7 },
+          { sensorId: '2', freeway: 'CA-237', lat: 37.33, lng: -121.88, direction: 'W', postmile: '5.3', lanes: 4, lengthKm: 0.3 }
+        ];
+        allSensors = demoSensors;
+        displaySensors(allSensors);
+        updateStats(allSensors);
+      });
+
+    function displaySensors(sensors) {
+      // Supprimer les anciens marqueurs
+      markers.forEach(marker => map.removeLayer(marker));
+      markers = [];
+
+      // Ajouter les nouveaux marqueurs (petits points rouges simples)
+      sensors.forEach(sensor => {
+        if (sensor.lat && sensor.lng) {
+          const marker = L.marker([parseFloat(sensor.lat), parseFloat(sensor.lng)], {
+            icon: getSimpleRedDot()  // Petit point rouge sans numéro
+          })
+            .addTo(map)
+            .bindPopup(`
+              <div class="sensor-popup">
+                <h3>Capteur #${sensor.sensorId}</h3>
+                <table>
+                  <tr><td>Autoroute:</td><td>${sensor.freeway} (${sensor.direction || 'N/A'})</td></tr>
+                  <tr><td>Postmile:</td><td>${sensor.postmile || 'N/A'}</td></tr>
+                  <tr><td>Voies:</td><td>${sensor.lanes || 'N/A'}</td></tr>
+                  <tr><td>Longueur:</td><td>${sensor.lengthKm || 'N/A'} km</td></tr>
+                  <tr><td>Coordonnées:</td><td>${parseFloat(sensor.lat).toFixed(4)}, ${parseFloat(sensor.lng).toFixed(4)}</td></tr>
+                </table>
+              </div>
+            `);
+          markers.push(marker);
+        }
+      });
+      
+      updateStats(sensors);
+    }
+
+    function filterByFreeway() {
+      const freeway = document.getElementById('freeway').value;
+      if (freeway === 'all') {
+        displaySensors(allSensors);
+        map.setView([37.35, -121.95], 11);
+      } else {
+        const filtered = allSensors.filter(s => s.freeway === freeway);
+        displaySensors(filtered);
+        
+        // Ajuster la vue si des capteurs sont trouvés
+        if (filtered.length > 0) {
+          const bounds = L.latLngBounds(filtered.map(s => [parseFloat(s.lat), parseFloat(s.lng)]));
+          map.fitBounds(bounds, { padding: [50, 50] });
+        }
+      }
+    }
+
+    function resetMap() {
+      document.getElementById('freeway').value = 'all';
+      displaySensors(allSensors);
+      map.setView([37.35, -121.95], 11);
+    }
+
+    function updateStats(sensors) {
+      const stats = document.getElementById('stats');
+      if (!sensors || sensors.length === 0) {
+        stats.innerHTML = 'Aucun capteur trouvé';
+      } else {
+        stats.innerHTML = `${sensors.length} capteurs affichés`;
+      }
+    }
+  </script>
+</body>
+</html>
