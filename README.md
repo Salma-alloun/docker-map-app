@@ -56,19 +56,151 @@ Application web interactive pour visualiser les capteurs de trafic routier sur l
 - Ou **Node.js** (v20+) et **MongoDB** pour une exécution locale
 - Git pour cloner le repository
 
-## 🚀 Installation
+# 🚀 Installation et lancement du projet Map Traffic Sensors
 
-### Avec Docker (recommandé)
+## 📋 Prérequis
+
+* Docker installé → Docker
+* (Optionnel) Docker Desktop pour interface graphique
+
+---
+
+## 🧱 1. Créer un réseau Docker
+
+Créer un réseau pour permettre la communication entre les conteneurs :
 
 ```bash
-# Cloner le repository
-git clone  https://github.com/Salma-alloun/docker-map-app.git
+docker network create my-network
+```
 
-# Se déplacer dans le dossier
-cd docker-map-app
+---
 
-# Construire l'image Docker
+## 🗄️ 2. Lancer MongoDB
+
+### 📥 Télécharger l’image MongoDB
+
+```bash
+docker pull mongo:latest
+```
+
+### ▶️ Démarrer le conteneur MongoDB
+
+```bash
+docker run -d \
+  --name mongodb \
+  --network my-network \
+  -p 27017:27017 \
+  mongo:latest
+```
+
+---
+
+## 🧠 3. Construire l’application Node.js
+
+Depuis le dossier du projet (où se trouve le Dockerfile) :
+
+```bash
 docker build -t map-app .
+```
 
-# Lancer le conteneur
-docker run -p 5000:5000 --name map-app map-app
+---
+
+## ▶️ 4. Lancer l’application
+
+```bash
+docker run -d \
+  --name map-app \
+  --network my-network \
+  -p 5000:5000 \
+  map-app
+```
+
+---
+
+## 🌐 5. Accéder à l’application
+
+Ouvrir dans le navigateur :
+
+```text
+http://localhost:5000
+```
+
+---
+
+## 🧪 6. Vérifier les données MongoDB
+
+### Accéder au shell MongoDB :
+
+```bash
+docker exec -it mongodb mongosh
+```
+
+### Commandes utiles :
+
+```js
+show dbs
+use map_database
+show collections
+db.sensors.find().limit(5)
+```
+
+---
+
+## 📊 7. Vérifier les conteneurs
+
+```bash
+docker ps
+```
+
+---
+
+## 🛑 8. Arrêter les conteneurs
+
+```bash
+docker stop map-app mongodb
+```
+
+---
+
+## 🗑️ 9. Supprimer les conteneurs
+
+```bash
+docker rm map-app mongodb
+```
+
+---
+
+## ⚠️ Remarques importantes
+
+* Le backend se connecte à MongoDB via :
+
+```text
+mongodb://mongodb:27017
+```
+
+👉 `mongodb` correspond au **nom du conteneur**
+
+* Le réseau `my-network` est obligatoire pour la communication entre services
+
+* Le fichier CSV est automatiquement chargé au démarrage si la base est vide
+
+---
+
+## 💡 Astuces
+
+* Voir les logs :
+
+```bash
+docker logs map-app
+docker logs mongodb
+```
+
+* Redémarrer un conteneur :
+
+```bash
+docker restart map-app
+```
+
+---
+
+
